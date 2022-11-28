@@ -11,46 +11,66 @@ namespace Game.Animation {
         [SerializeField] private Transform swerveAxis;
         [SerializeField] private Transform[] wheels;
 
-        [TitleGroup("Head settings")] 
-        [SerializeField] private float headRotateSpeed;
-        [SerializeField] private float maxHeadAngle;
+        [TabGroup("Settings", "Head")] [SerializeField] private float headRotateSpeed;
+        [TabGroup("Settings", "Head")] [SerializeField] private float maxHeadAngle;
 
-        [TitleGroup("Body settings")]
-        [SerializeField] private float bodyLiftSpeed;
-        [SerializeField] private float bodyRotateSpeed;
-        [SerializeField] private float bodyLeanSpeed;
-        [SerializeField] private float maxBodyAngle;
-        [SerializeField] private float maxLeanAngle;
-        [SerializeField] private float rotateDelay;
-        [SerializeField] private float leanDelay;
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Speed")] [SerializeField] private float bodyLiftSpeed;
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Speed")] [SerializeField] private float bodyRotateSpeed;
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Speed")] [SerializeField] private float bodyLeanSpeed;
+        
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Angle")] [SerializeField] private float maxBodyAngle;
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Angle")] [SerializeField] private float maxBodyPitch;
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Angle")] [SerializeField] private float maxLeanAngle;
+        
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Delay")] [SerializeField] private float rotateDelay;
+        [TabGroup("Settings", "Body")] [TitleGroup("Settings/Body/Delay")] [SerializeField] private float leanDelay;
+
+        [TitleGroup("Equilibrium settings")] 
+        [SerializeField] private float returnSpeed;
         
         private float _baseHeadAngle;
         private float _headAngle;
         private Vector3 _clampVector;
+        private Quaternion _baseHeadRotation;
 
         private float _bodyLean;
         private float _bodyAngle;
+        private float _bodyPitch;
+        private float _baseBodyAngle;
+        private Quaternion _baseBodyRotation;
+        private Quaternion _baseRootRotation;
 
         private float _currentRotateDelay;
         private float _currentLeanDelay;
+        
 
         private void Awake() {
-            _baseHeadAngle = headAxis.localEulerAngles.x;
-            _headAngle     = _baseHeadAngle;
+            _baseHeadAngle    = headAxis.localEulerAngles.x;
+            _baseHeadRotation = headAxis.localRotation;
+            _baseBodyRotation = swerveAxis.localRotation;
+            _baseRootRotation = root.localRotation;
+            _baseBodyAngle    = swerveAxis.localEulerAngles.y;
+            _headAngle        = _baseHeadAngle;
         }
 
         private void Update() {
-            NCLogger.Log($"{Input.GetAxis("Horizontal")}");
-            if (Mathf.Abs(Input.GetAxis("Horizontal")) > 0.9f) {
-                _currentRotateDelay += Time.deltaTime;
-                _currentLeanDelay += Time.deltaTime;
+            if (Mathf.Abs(Input.GetAxisRaw("Horizontal")) != 0f) {
+                if (Mathf.Abs(Input.GetAxis("Horizontal")) > 0.9f) {
+                    _currentRotateDelay += Time.deltaTime;
+                    _currentLeanDelay += Time.deltaTime;
+                } else {
+                    _currentRotateDelay = 0;
+                    _currentLeanDelay   = 0;
+                }
+                RotateHead();
+                RotateBody();
+                LiftBody();
+            } else if (Mathf.Abs(Input.GetAxisRaw("Vertical")) != 0f) {
+                
             } else {
-                _currentRotateDelay = 0;
-                _currentLeanDelay   = 0;
+                ReturnToEquilibrium();
             }
-            RotateHead();
-            RotateBody();
-            LiftBody();
+            NCLogger.Log($"{Input.GetAxis("Horizontal")}");
         }
 
         private void RotateHead() {
@@ -88,8 +108,25 @@ namespace Game.Animation {
             swerveAxis.localEulerAngles = new Vector3(0f, _bodyAngle, _bodyLean);
         }
 
-        private void LiftBody() {
+        private void ReturnToEquilibrium() {
+            swerveAxis.localRotation = Quaternion.Lerp(swerveAxis.localRotation, _baseBodyRotation, returnSpeed * Time.deltaTime);
+            headAxis.localRotation   = Quaternion.Lerp(headAxis.localRotation, _baseHeadRotation, returnSpeed * Time.deltaTime);
+            root.localRotation      = Quaternion.Lerp(root.localRotation, _baseRootRotation, returnSpeed * Time.deltaTime);
             
+            _clampVector = Vector3.zero;
+            _headAngle   = Mathf.Lerp(_headAngle, 0f, returnSpeed * Time.deltaTime);
+            _bodyAngle   = Mathf.Lerp(_bodyAngle, 0f, returnSpeed * Time.deltaTime);
+            _bodyLean    = Mathf.Lerp(_bodyLean, 0f, returnSpeed * Time.deltaTime);
+            _bodyPitch   = Mathf.Lerp(_bodyPitch, 0f, returnSpeed * Time.deltaTime);
+        }
+
+        private void LiftBody() {
+            // if (Mathf.Abs(_headAngle - _baseHeadAngle) > 2f ||
+                // Mathf.Abs(_bodyAngle - _baseBodyAngle) > 2f) return;
+            var euler = root.localEulerAngles;
+            _bodyPitch            -= Input.GetAxis("Vertical") * bodyLiftSpeed * Time.deltaTime;
+            _bodyPitch            =  Mathf.Clamp(_bodyPitch, -maxBodyAngle, 0);
+            root.localEulerAngles =  new Vector3(_bodyPitch, euler.y, euler.z);
         }
     }
 }
