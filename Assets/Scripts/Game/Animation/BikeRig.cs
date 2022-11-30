@@ -83,20 +83,25 @@ namespace Game.Animation {
         }
 
         private void Update() {
-            if (Mathf.Abs(Input.GetAxisRaw("Horizontal")) != 0f) {
-                if (Mathf.Abs(Input.GetAxisRaw("Horizontal")) > 0.9f) {
+            var horizontal = Input.GetAxisRaw("Horizontal");
+            var vertical = Input.GetAxisRaw("Vertical");
+            var absHori = Mathf.Abs(horizontal);
+            var absVert = Mathf.Abs(vertical);
+            if (absHori != 0f) {
+                if (absHori > 0.9f) {
                     _currentRotateDelay += Time.deltaTime;
                     _currentLeanDelay   += Time.deltaTime;
                 }
                 RotateHead();
                 RotateBody();
-            } else if (Mathf.Abs(Input.GetAxisRaw("Vertical")) != 0f) {
+            } else if (absVert != 0f) {
                 LiftBody();
+                ReturnToEquilibrium(true);
             } else {
                 ReturnToEquilibrium();
             }
             RotateWheels();
-            NCLogger.Log($"{Input.GetAxis("Horizontal")}");
+            NCLogger.Log($"{state.HasFlag(RigState.Wheelie)}");
         }
 
         private void RotateHead() {
@@ -135,24 +140,34 @@ namespace Game.Animation {
         }
 
         private void ReturnToEquilibrium(bool yawOnly = false) {
-            swerveAxis.localRotation = Quaternion.Lerp(swerveAxis.localRotation, 
-                                                       _baseBodyRotation, 
-                                                       returnSpeed * Time.deltaTime);
-            _bodyAngle = Mathf.SmoothStep(_bodyAngle, 0f, returnSpeed * Time.deltaTime);
-            _bodyLean  = Mathf.SmoothStep(_bodyLean, 0f, returnSpeed * Time.deltaTime);
-
-            headAxis.localRotation = Quaternion.Lerp(headAxis.localRotation, 
-                                                     _baseHeadRotation, 
-                                                     returnSpeed * Time.deltaTime);
-            _headAngle = Mathf.Lerp(_headAngle, 0f, returnSpeed * Time.deltaTime);
-            
             if (yawOnly) {
-                root.localRotation = Quaternion.Lerp(root.localRotation, 
-                                                     _baseRootRotation, 
-                                                     returnSpeed * Time.deltaTime);
-                _bodyPitch         = Mathf.Lerp(_bodyPitch, 0f, returnSpeed * Time.deltaTime);
-            }
+                swerveAxis.localRotation = Quaternion.Slerp(swerveAxis.localRotation, 
+                                                           _baseBodyRotation, 
+                                                           returnSpeed * Time.deltaTime);
+                _bodyAngle = Mathf.SmoothStep(_bodyAngle, 0f, bodyRotateSpeed * Time.deltaTime);
+                _bodyLean  = Mathf.SmoothStep(_bodyLean, 0f, bodyLeanSpeed * Time.deltaTime);
 
+                headAxis.localRotation = Quaternion.Slerp(headAxis.localRotation, 
+                                                          _baseHeadRotation, 
+                                                          headRotateSpeed * Time.deltaTime);
+                _headAngle = Mathf.Lerp(_headAngle, 0f, returnSpeed * Time.deltaTime);
+            } else {
+                swerveAxis.localRotation = Quaternion.Slerp(swerveAxis.localRotation, 
+                                                            _baseBodyRotation, 
+                                                            returnSpeed * Time.deltaTime);
+                _bodyAngle = Mathf.SmoothStep(_bodyAngle, 0f, bodyRotateSpeed * Time.deltaTime);
+                _bodyLean  = Mathf.SmoothStep(_bodyLean, 0f, bodyLeanSpeed * Time.deltaTime);
+
+                headAxis.localRotation = Quaternion.Slerp(headAxis.localRotation, 
+                                                          _baseHeadRotation, 
+                                                          headRotateSpeed * Time.deltaTime);
+                _headAngle = Mathf.Lerp(_headAngle, 0f, returnSpeed * Time.deltaTime);
+                
+                root.localRotation = Quaternion.Slerp(root.localRotation, 
+                                                      _baseRootRotation, 
+                                                      returnSpeed * Time.deltaTime);
+                _bodyPitch         = Mathf.SmoothStep(_bodyPitch, 0f, returnSpeed * Time.deltaTime);
+            }
             _clampVector = Vector3.zero;
         }
 
