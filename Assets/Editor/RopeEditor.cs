@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Core.Logging;
 using Game;
 using Sirenix.OdinInspector.Editor;
@@ -6,6 +7,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(RopeBehaviour))]
+[CanEditMultipleObjects]
 public class RopeEditor : OdinEditor {
     private enum HandleAxis {
         X,
@@ -53,6 +55,8 @@ public class RopeEditor : OdinEditor {
     private bool cached;
     private RopeBehaviour rope;
     private int nearestID;
+    private RopeHandle nearestHandle;
+    private Vector3 dragDir;
     
     protected virtual void OnSceneGUI() {
         if (!cached) {
@@ -62,30 +66,51 @@ public class RopeEditor : OdinEditor {
             cached      = true;
         }
         
-        switch (Event.current.type) {
-            case EventType.Repaint:
-                DrawPointGizmo(rope.GetStartPos(), startHandle, EventType.Repaint);
-                DrawPointGizmo(rope.GetEndPos(), endHandle, EventType.Repaint);
-                break;
-            
-            case EventType.Layout:
-                DrawPointGizmo(rope.GetStartPos(), startHandle, EventType.Layout);
-                DrawPointGizmo(rope.GetEndPos(), endHandle, EventType.Layout);
-                break;
-            
-            case EventType.MouseDown:
-                nearestID = HandleUtility.nearestControl;
-                break;
-            
-            case EventType.MouseUp:
-                nearestID = -1;
-                break;
-            
-            case EventType.MouseDrag:
-                if (Event.current.button == 0) {
-                    
-                }
-                break;
+        // switch (Event.current.type) {
+        //     case EventType.Repaint:
+        //         DrawPointGizmo(rope.GetStartPos(), startHandle, EventType.Repaint);
+        //         DrawPointGizmo(rope.GetEndPos(), endHandle, EventType.Repaint);
+        //         break;
+        //     
+        //     case EventType.Layout:
+        //         DrawPointGizmo(rope.GetStartPos(), startHandle, EventType.Layout);
+        //         DrawPointGizmo(rope.GetEndPos(), endHandle, EventType.Layout);
+        //         break;
+        //     
+        //     case EventType.MouseDown:
+        //         nearestID     = HandleUtility.nearestControl;
+        //         nearestHandle = GetNearestHandle();
+        //         dragDir       = GetAxisVector(GetActiveAxis(nearestHandle));
+        //
+        //         if (nearestHandle.Start) {
+        //             Undo.RecordObject(rope.start, "Moved rope start");
+        //         } else {
+        //             
+        //         }
+        //         break;
+        //     
+        //     case EventType.MouseUp:
+        //         nearestID = -1;
+        //         break;
+        //     
+        //     case EventType.MouseDrag:
+        //         if (Event.current.button == 0) {
+        //             HandleDrag();
+        //         }
+        //         break;
+        // }
+        EditorGUI.BeginChangeCheck();
+        Vector3 startHandlePos = Handles.PositionHandle(rope.GetStartPos(), Quaternion.identity);
+        Vector3 endHandlePos = Handles.PositionHandle(rope.GetEndPos(), Quaternion.identity);
+        DrawLabels(startHandlePos, $"Start\n{startHandlePos}", -0.2f);
+        DrawLabels(endHandlePos, $"End\n{endHandlePos}", -0.2f);
+        if (EditorGUI.EndChangeCheck()) {
+            var endString = startHandlePos != rope.start ? "start" : endHandlePos != rope.end ? "end" : null;
+            if (endString == null) return;
+            Undo.RecordObject(rope, $"Changed {rope.name}'s {endString}");
+            rope.start = startHandlePos - rope.transform.position;
+            rope.end   = endHandlePos - rope.transform.position;
+            rope.ResetRenderer();
         }
     }
 
@@ -150,6 +175,32 @@ public class RopeEditor : OdinEditor {
     }
 
     private RopeHandle GetNearestHandle() {
-        return null;
+        RopeHandle nearest = startHandle.AxisIDs.Contains(nearestID) ? startHandle :
+            endHandle.AxisIDs.Contains(nearestID) ? endHandle : null;
+        return nearest;
+    }
+
+    private Vector3 GetAxisVector(HandleAxis axis) {
+        Vector3 axisVector = new ();
+        axisVector = 
+            axis switch {
+                HandleAxis.X => new Vector3(1f, 0f, 0f),
+                HandleAxis.Y => new Vector3(0f, 1f, 0f),
+                HandleAxis.Z => new Vector3(0f, 0f, 1f),
+                _ => axisVector
+            };
+        return axisVector;
+    }
+
+    private HandleAxis GetActiveAxis(RopeHandle handle) {
+        return handle.Data.First(x => x.ID == nearestID).Axis;
+    }
+
+    private void HandleDrag() {
+        if (nearestHandle.Start) {
+            rope.start += dragDir;
+        } else {
+            rope.end += dragDir;
+        }
     }
 }

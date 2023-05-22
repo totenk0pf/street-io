@@ -107,7 +107,7 @@ namespace Game.Animation {
         private void RotateHead() {
             headAxis.Rotate(headAxis.up,
                             Input.GetAxisRaw("Horizontal") * headRotateSpeed * Time.deltaTime,
-                            Space.World);
+                            Space.World);   
             var euler = headAxis.localEulerAngles;
             _headAngle = euler.x;
             _headAngle = Mathf.Clamp(_headAngle,

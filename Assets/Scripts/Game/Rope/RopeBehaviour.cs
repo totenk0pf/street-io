@@ -20,8 +20,14 @@ namespace Game {
     [RequireComponent(typeof(LineRenderer))]
     public class RopeBehaviour : SerializedMonoBehaviour {
         [TitleGroup("Rope ends")]
-        [ReadOnly] public Vector3 start = new (1f, 0f, 0f);
-        [ReadOnly] public Vector3 end = new (-1f, 0f, 0f);
+        [TitleGroup("Rope ends")] [ReadOnly] public Vector3 start = new (1f, 0f, 0f);
+        [TitleGroup("Rope ends")] [ReadOnly] public Vector3 end = new (-1f, 0f, 0f);
+        [TitleGroup("Rope ends")] [Button("Reset ends")]
+        private void ResetEnds() {
+            start = new Vector3(1f, 0f, 0f);
+            end   = start * -1;
+            ResetRenderer();
+        }
 
         [TitleGroup("Forces")]
         [SerializeField] private float gravity = 9.81f;
@@ -36,26 +42,27 @@ namespace Game {
         
         private LineRenderer _renderer;
         private List<RopeVertex> segments = new ();
+        private bool _ready;
         
         private const float _gizmoSize = 0.2f;
 
         private void Awake() {
             _renderer = GetComponent<LineRenderer>();
-            var dist = Vector3.Distance(start, end);
-            segmentLength = dist / segmentCount;
-            for (var i = 0; i < segmentCount; i++) {
-                segments.Add(new RopeVertex(GetStartPos() + new Vector3(i * segmentLength + sagAmount, 0f, 0f)));
-            }
-            _grav = new Vector3(0f, gravity, 0f);
+            _grav     = new Vector3(0f, gravity, 0f);
+            _ready    = false;
+            Setup();
         }
 
         private void Update() {
-            if (!Application.isPlaying) return;
+            if (!Application.isPlaying) {
+                ResetRenderer();
+                return;
+            }
             Render();
         }
 
         private void FixedUpdate() {
-            if (!Application.isPlaying) return;
+            if (!Application.isPlaying || !_ready) return;
             Simulate();
         }
 
@@ -95,7 +102,7 @@ namespace Game {
                 RopeVertex nextVert = segments[i + 1];
             
                 var dist = (currVert.currPos - nextVert.currPos).magnitude;
-                var error = dist - segmentLength + sagAmount;
+                var error = dist - segmentLength - sagAmount;
                 Vector3 changeDir = (currVert.currPos - nextVert.currPos).normalized;
                 Vector3 changeAmt = changeDir * error;
                 Vector3 half = changeAmt * damping;
@@ -114,17 +121,31 @@ namespace Game {
         public Vector3 GetStartPos() => transform.position + start;
         public Vector3 GetEndPos() => transform.position + end;
 
+        public void ResetRenderer() {
+            LineRenderer tempRenderer = GetComponent<LineRenderer>();
+            if (tempRenderer.positionCount > 2) tempRenderer.positionCount = 0;
+            var gizmoVertices = new Vector3[2];
+            gizmoVertices[0] = GetStartPos();
+            gizmoVertices[1] = GetEndPos();
+            tempRenderer.SetPositions(gizmoVertices);
+        }
+
+        private void Setup() {
+            var dist = Vector3.Distance(start, end);
+            segmentLength = dist / segmentCount;
+            segments.Clear();
+            for (var i = 0; i < segmentCount; i++) {
+                segments.Add(new RopeVertex(GetStartPos() + new Vector3(i * segmentLength + sagAmount, 0f, 0f)));
+            }
+            _ready = true;
+        }
+
 #if UNITY_EDITOR
         private void OnValidate() {
             if (Application.isPlaying) {
-                
+                Setup();
             } else {
-                LineRenderer tempRenderer = GetComponent<LineRenderer>();
-                if (tempRenderer.positionCount > 2) tempRenderer.positionCount = 0;
-                var gizmoVertices = new Vector3[2];
-                gizmoVertices[0] = GetStartPos();
-                gizmoVertices[1] = GetEndPos();
-                tempRenderer.SetPositions(gizmoVertices);
+                ResetRenderer();
             }
         }
 
