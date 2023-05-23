@@ -97,7 +97,7 @@ Material:
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _Cloud_Resolution: 256
-    - _Cloud_Scale: 32
+    - _Cloud_Scale: 24
     - _Cloud_Strength: 1.75
     - _Cloud_Threshold: 72
     - _Cull: 2
